@@ -28,6 +28,7 @@ export class CourseComponent implements OnInit, AfterViewInit {
 
     course$: Observable<Course>;
     lessons$: Observable<Lesson[]>;
+    courseId: string;
 
 
     @ViewChild('searchInput', { static: true }) input: ElementRef;
@@ -39,29 +40,36 @@ export class CourseComponent implements OnInit, AfterViewInit {
 
     ngOnInit() {
 
-        const courseId = this.route.snapshot.params['id'];
+        this.courseId = this.route.snapshot.params['id'];
 
-        this.course$ = createHttpObservable(`api/courses/${courseId}`)
-
-        this.lessons$ = createHttpObservable(`api/lessons?courseId=${courseId}&pageSize=100`)
-        .pipe(
-            map(res => res['payload'])
-        )
-
+        this.course$ = createHttpObservable(`api/courses/${this.courseId}`)
 
     }
 
     ngAfterViewInit() {
-        fromEvent<KeyboardEvent>(this.input.nativeElement, 'keyup')
+        const searchLessons$ = fromEvent<KeyboardEvent>(this.input.nativeElement, 'keyup')
             .pipe(
                 map((event) => (event.target as HTMLInputElement).value),
                 debounceTime(400),
                 distinctUntilChanged(),
-                 
-            ).subscribe(console.log)
+                switchMap(search => this.loadLessons(search))
+            );
+
+        const initialLessons$ = this.loadLessons();
+
+        this.lessons$ = concat(initialLessons$, searchLessons$)
 
 
     }
+
+    loadLessons(search: string = ''): Observable<Lesson[]> {
+            
+            return createHttpObservable(`api/lessons?courseId=${this.courseId}&pageSize=100&filter=${search}`)
+            .pipe(
+                map(res => res['payload'])
+            )
+    
+        }
 
 
 
